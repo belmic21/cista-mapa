@@ -112,6 +112,7 @@
     <input id="search" placeholder="Hledat: jméno, rok, č.p., telefon…" style="flex:1;min-width:80px">
     <button id="addBtn" class="ghost icon-btn hide-present" title="Přidat dům">+Dům</button>
     <button id="addZnBtn" class="ghost icon-btn hide-present" title="Přidat značku">+📌</button>
+    <button id="gpsBtn" class="ghost icon-btn" title="Moje poloha">📍</button>
     <button id="presentBtn" class="ghost icon-btn" title="Prezentační režim">⛶</button>
     <button id="logoutBtn" class="ghost icon-btn hide-present" title="Odhlásit">⏻</button>
   </div>
@@ -209,7 +210,7 @@ const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;
 const getCss=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const NOW=new Date().getFullYear();
 const RUIAN_OBEC='23957',WIKIDATA='Q2427119';
-const FC=[50.4741,14.823],FZ=16;
+const FC=[50.472694,14.845141],FZ=16;
 const ZN_TYPY=['porucha komunikace','pokácený strom','černá skládka','veřejné osvětlení','chybějící chodník','kanalizace','dopravní značení','jiné'];
 
 let D={domy:[],osoby:[],stitky:[],skupiny:[],znacky:[],context:[],meta:{officialPop:888,center:FC,zoom:FZ,loaded:false}};
@@ -307,7 +308,7 @@ async function loadH(){
   // Spolehlivý dotaz: přímo OSM relace ID 441943 = Čistá u MB
   const Qs=`[out:json][timeout:90];rel(441943)->.r;.r map_to_area->.a;( way["building"](area.a); node["addr:housenumber"](area.a); node["addr:conscriptionnumber"](area.a); );out geom;`;
   // Záložní: bbox kolem Čisté
-  const Qb=`[out:json][timeout:60];( way["building"](50.462,14.800,50.490,14.855); node["addr:housenumber"](50.462,14.800,50.490,14.855); node["addr:conscriptionnumber"](50.462,14.800,50.490,14.855); );out geom;`;
+  const Qb=`[out:json][timeout:60];( way["building"](50.460,14.825,50.485,14.865); node["addr:housenumber"](50.460,14.825,50.485,14.865); node["addr:conscriptionnumber"](50.460,14.825,50.485,14.865); );out geom;`;
   let data;
   try{data=await overpass(Qs);}catch(e){try{data=await overpass(Qb);}catch(e2){oErr();return;}}
   ingest(data);D.meta.loaded=true;sMeta();sM('context',D.context);for(const d of D.domy)sD(d);
@@ -510,6 +511,16 @@ function wire(){
   document.getElementById('addBtn').onclick=()=>startAdd('dum','Klikni do mapy na místo domu');
   document.getElementById('addZnBtn').onclick=()=>startAdd('znacka','Klikni do mapy na místo značky');
   document.getElementById('addZn2').onclick=()=>{document.getElementById('left').classList.remove('open');startAdd('znacka','Klikni na místo značky');};
+  document.getElementById('gpsBtn').onclick=()=>{
+    if(!navigator.geolocation)return alert('GPS není k dispozici.');
+    if(window._gpsWatch){navigator.geolocation.clearWatch(window._gpsWatch);window._gpsWatch=null;document.getElementById('gpsBtn').classList.remove('on');if(window._gpsMk){map.removeLayer(window._gpsMk);map.removeLayer(window._gpsCirc);}return;}
+    document.getElementById('gpsBtn').classList.add('on');
+    window._gpsWatch=navigator.geolocation.watchPosition(pos=>{
+      const ll=[pos.coords.latitude,pos.coords.longitude],acc=pos.coords.accuracy;
+      if(!window._gpsMk){window._gpsMk=L.circleMarker(ll,{radius:7,color:'#fff',weight:2,fillColor:'#3b82f6',fillOpacity:1}).addTo(map);window._gpsCirc=L.circle(ll,{radius:acc,stroke:true,color:'#3b82f680',weight:1,fill:true,fillColor:'#3b82f6',fillOpacity:.1,interactive:false}).addTo(map);map.setView(ll,17);}
+      else{window._gpsMk.setLatLng(ll);window._gpsCirc.setLatLng(ll).setRadius(acc);}
+    },err=>alert('GPS chyba: '+err.message),{enableHighAccuracy:true,maximumAge:5000});
+  };
   document.getElementById('presentBtn').onclick=()=>{document.body.classList.toggle('present');setTimeout(()=>map.invalidateSize(),250);};
   document.getElementById('exportBtn').onclick=expJ;
   document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
